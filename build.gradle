@@ -1,0 +1,47 @@
+plugins {
+    id "application"
+}
+
+apply plugin : "java"
+
+
+group 'me.osthues'
+version '1.0'
+
+
+ext {
+    javaMainClass = "me.osthues.fileserver.FileServer"
+}
+
+application {
+    mainClassName = javaMainClass
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_14
+    targetCompatibility = JavaVersion.VERSION_14
+}
+
+jar {
+    manifest {
+        attributes "Main-Class": javaMainClass
+    }
+
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+}
+
+test {
+    useJUnitPlatform()
+}
