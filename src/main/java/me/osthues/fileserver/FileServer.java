@@ -1,16 +1,15 @@
 package me.osthues.fileserver;
 
-import org.apache.commons.cli.*;
+import org.apache.commons.cli.ParseException;
 
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Date;
-import java.util.Map;
-import java.util.StringTokenizer;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -22,6 +21,17 @@ public class FileServer {
     public static final String DEFAULT_ROOT_DIR = "/var/www/html";
 
 
+    public static final String STATUS_OK = "200 OK";
+    public static final String STATUS_INTERNAL_SERVER_ERROR = "500 Internal Server Error";
+    public static final String STATUS_NOT_IMPLEMENTED = "501 Not Implemented";
+    private static final String STATUS_NOT_FOUND = "404 Not Found";
+    private static final String STATUS_HTTP_VERSION_NOT_SUPPORTED = "505 HTTP Version Not Supported";
+
+    public static final String MIME_TYPE_TEXT_HTML = "text/html";
+
+
+    private static final String HTTP_LINE_SEPARATOR = "\r\n";
+
     private final InetAddress address;
     private final int port;
     private final String rootDir;
@@ -29,9 +39,9 @@ public class FileServer {
     public FileServer(String address, int port, String rootDir) throws UnknownHostException {
 
         if (address == null || address.isEmpty()) {
-            this.address =  InetAddress.getByName(DEFAULT_ADDRESS);
+            this.address = InetAddress.getByName(DEFAULT_ADDRESS);
         } else {
-            this.address =  InetAddress.getByName(address);
+            this.address = InetAddress.getByName(address);
         }
 
         if (port < 1) {
@@ -42,6 +52,8 @@ public class FileServer {
 
         if (rootDir == null || rootDir.isEmpty()) {
             this.rootDir = DEFAULT_ROOT_DIR;
+        } else if (rootDir.endsWith("/")) {
+                this.rootDir = rootDir.substring(rootDir.length()-1);
         } else {
             this.rootDir = rootDir;
         }
@@ -103,117 +115,140 @@ public class FileServer {
 
         while (true) {
             Socket socket = serverSocket.accept();
-            // create dedicated thread to manage the client connection
 
-            Thread thread = new Thread(() -> this.handle(socket));
+            Thread thread = new Thread(() -> this.handleRequest(socket));
             System.out.println("starting thread: " + thread.getName());
             thread.start();
         }
 
     }
 
-    private void handle(Socket connect) {
 
-        if (!connect.isConnected()) {
-            System.out.println("socket not connected");
+    private Response httpHandler(String method, String path) {
+
+        Response response = new Response();
+
+        switch (method) {
+            case "HEAD":
+                response.setStatus(HttpStatus.HTTP_VERSION_NOT_SUPPORTED);
+                break;
+            case "GET":
+                try {
+                    response = buildFileResponse(path);
+                } catch (IOException e) {
+                    response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+                break;
         }
 
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(connect.getInputStream()));
-                PrintWriter out = new PrintWriter(connect.getOutputStream());
-             BufferedOutputStream dataOut = new BufferedOutputStream(connect.getOutputStream());
-        ){
+        return response;
+    }
+
+    public void handleRequest(Socket socket) {
+
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter out = new PrintWriter(socket.getOutputStream());
+             BufferedOutputStream dataOut = new BufferedOutputStream(socket.getOutputStream())
+        ) {
 
             // get first line of the request from the client
             String input = in.readLine();
-
             if (input == null) {
                 System.out.println("Socket is empty");
                 return;
-            } else {
-                System.out.println("Receiving data");
             }
 
             // we parse the request with a string tokenizer
             StringTokenizer parse = new StringTokenizer(input);
-            String method = parse.nextToken().toUpperCase(); // we get the HTTP method of the client
+            String method = parse.nextToken().toUpperCase();
             // we get file requested
-            String fileRequested = URLDecoder.decode(parse.nextToken(), StandardCharsets.UTF_8);
+            String path = URLDecoder.decode(parse.nextToken(), StandardCharsets.UTF_8);
 
-            // we support only GET and HEAD methods, we check
-            if (!method.equals("GET") && !method.equals("HEAD")) {
+            Response response;
 
-                // we return the not supported file to the client
-                String contentMimeType = "text/html";
-                //read content to return to client
-                byte[] data = "501 Not Implemented".getBytes();
-
-                // we send HTTP Headers with data to client
-                out.println("HTTP/1.1 501 Not Implemented");
-                out.println("Date: " + new Date());
-                out.println("Content-type: " + contentMimeType);
-                out.println("Content-length: " + data.length);
-                out.println(); // blank line between headers and content, very important !
-                out.flush(); // flush character output stream buffer
-                // file
-                dataOut.write(data, 0, data.length);
-                dataOut.flush();
-
+            if (parse.nextToken().equals("HTTP/1.1")) {
+               response = httpHandler(method, path);
+            } else {
+                response = new Response(HttpStatus.HTTP_VERSION_NOT_SUPPORTED);
             }
 
-
-            if (method.equals("GET")) {
-
-                byte[] data;
-
-                // GET or HEAD method
-                if (fileRequested.endsWith("/")) {
-                    String files;
-
-                    try (Stream<Path> paths = Files.list(Paths.get(rootDir + fileRequested))) {
-                        files = paths
-                                .map(Path::toAbsolutePath)
-                                .map(Path::toString)
-                                .map(s -> s.substring(rootDir.length()))
-                                .collect(Collectors.joining("\n"));
-                    }
-
-                    data = files.getBytes();
-
-                } else {
-
-                    File file = new File(rootDir, fileRequested);
-                    int fileLength = (int) file.length();
-
-                    data = new byte[fileLength];
-                    try (FileInputStream fileIn = new FileInputStream(file)) {
-                        fileIn.read(data);
-                    }
-                }
-
-                // send HTTP Headers
-                out.println("HTTP/1.1 200 OK");
-                out.println("Date: " + new Date());
-                out.println("Content-type: text/html");
-                out.println("Content-length: " + data.length);
-                out.println(); // blank line between headers and content, very important !
-                out.flush(); // flush character output stream buffer
-
-                dataOut.write(data, 0, data.length);
-                dataOut.flush();
-            }
+            response.buildHeaders().forEach(out::print);
+            out.flush();
+            dataOut.write(response.getData(), 0, response.getData().length);
+            dataOut.flush();
 
 
         } catch (IOException ioe) {
             System.err.println("Server error : " + ioe);
         } finally {
             try {
-                connect.close();
+                socket.close();
             } catch (Exception e) {
                 System.err.println("Error closing stream : " + e.getMessage());
             }
         }
 
+        System.out.println("Finished: " + Thread.currentThread());
+
     }
+
+    private Response buildFileResponse(String path) throws IOException {
+
+        Response response = new Response();
+
+        Path filePath = Paths.get(this.rootDir + path);
+
+        if (Files.exists(filePath)) {
+
+            if (Files.isRegularFile(filePath)) {
+                response.setMimeType(URLConnection.guessContentTypeFromName(path));
+                response.setData(this.getFile(this.rootDir + path));
+            }
+
+            if (Files.isDirectory(filePath)) {
+
+                response.setData(this.getDirectory(filePath));
+
+
+            }
+
+            response.setStatus(HttpStatus.OK);
+
+        } else {
+            response.setStatus(HttpStatus.NOT_FOUND);
+        }
+
+        return response;
+    }
+
+
+    private byte[] getDirectory(Path filePath) throws IOException {
+        String files;
+
+        try (Stream<Path> paths = Files.list(filePath)) {
+            files = paths
+                    .map(Path::toAbsolutePath)
+                    .map(Path::toString)
+                    .map(s -> s.substring(rootDir.length()+1))
+                    .collect(Collectors.joining("\r\n"));
+        }
+
+        return files.getBytes();
+
+    }
+
+    private byte[] getFile(String fileRequested) throws IOException {
+        File file = new File(fileRequested);
+        int fileLength = (int) file.length();
+
+        byte[] data = new byte[fileLength];
+        try (FileInputStream fileIn = new FileInputStream(file)) {
+            fileIn.read(data);
+        }
+
+        return data;
+    }
+
 
 }
 
