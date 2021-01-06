@@ -20,18 +20,6 @@ public class FileServer {
     public static final int DEFAULT_PORT = 8080;
     public static final String DEFAULT_ROOT_DIR = "/var/www/html";
 
-
-    public static final String STATUS_OK = "200 OK";
-    public static final String STATUS_INTERNAL_SERVER_ERROR = "500 Internal Server Error";
-    public static final String STATUS_NOT_IMPLEMENTED = "501 Not Implemented";
-    private static final String STATUS_NOT_FOUND = "404 Not Found";
-    private static final String STATUS_HTTP_VERSION_NOT_SUPPORTED = "505 HTTP Version Not Supported";
-
-    public static final String MIME_TYPE_TEXT_HTML = "text/html";
-
-
-    private static final String HTTP_LINE_SEPARATOR = "\r\n";
-
     private final InetAddress address;
     private final int port;
     private final String rootDir;
@@ -207,9 +195,26 @@ public class FileServer {
 
             if (Files.isDirectory(filePath)) {
 
-                response.setData(this.getDirectory(filePath));
+                String htmlRespnse = "<html>\r\n" +
+                        "<head>\r\n" +
+                        "<title>\r\n" +
+                        "Index of " + path + "\r\n" +
+                        "</title>\r\n" +
+                        "</head>\r\n" +
+                        "<body bgcolor=\"white\">\r\n" +
+                        "<h1>\r\n" +
+                        "Index of " + path + "\r\n" +
+                        "</h1>\r\n" +
+                        "<hr>\r\n" +
+                        "<pre>\r\n" +
+                        "<a href=\"../\">../</a>\r\n" +
+                        this.getDirectory(filePath) +
+                        "</pre>\r\n" +
+                        "<hr>\r\n" +
+                        "</body>\r\n" +
+                        "</html>\r\n";
 
-
+                response.setData(htmlRespnse.getBytes());
             }
 
             response.setStatus(HttpStatus.OK);
@@ -222,18 +227,22 @@ public class FileServer {
     }
 
 
-    private byte[] getDirectory(Path filePath) throws IOException {
+    private String getDirectory(Path filePath) throws IOException {
+        final String linkTemplate = "<a href=\"%s\">%s</a>";
         String files;
+
+
 
         try (Stream<Path> paths = Files.list(filePath)) {
             files = paths
                     .map(Path::toAbsolutePath)
                     .map(Path::toString)
-                    .map(s -> s.substring(rootDir.length()+1))
+                    .map(s -> s.substring(filePath.toString().length()+1))
+                    .map(s -> String.format(linkTemplate, s, s))
                     .collect(Collectors.joining("\r\n"));
         }
 
-        return files.getBytes();
+        return files;
 
     }
 

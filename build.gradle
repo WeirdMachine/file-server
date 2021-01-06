@@ -10,7 +10,7 @@ version '1.0'
 
 
 ext {
-    javaMainClass = "me.osthues.fileserver.FileServer"
+    javaMainClass  = "me.osthues.fileserver.FileServer"
 }
 
 application {
@@ -40,6 +40,7 @@ jar {
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+    compile 'commons-cli:commons-cli:1.4'
 }
 
 test {

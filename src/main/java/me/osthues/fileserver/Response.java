@@ -3,12 +3,9 @@ package me.osthues.fileserver;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class Response
 {
-
-    private static final String HTTP_LINE_SEPARATOR = "\r\n";
 
     private HttpStatus status;
     private byte[] data = new byte[0];
@@ -25,7 +22,7 @@ public class Response
         this.status = status;
 
         if (status != HttpStatus.OK) {
-            this.data = (status.toString() + HTTP_LINE_SEPARATOR).getBytes();
+            this.data = (status.toString() + "\r\n").getBytes();
         }
     }
 
@@ -44,14 +41,12 @@ public class Response
     public List<String> buildHeaders() {
         List<String> headers = new ArrayList<>();
 
-        headers.add("HTTP/1.1 " + status);
-        headers.add("Date " + new Date());
-        headers.add("Content-length: " + data.length);
-        headers.add("Connection: close");
-        headers.add("Content-type: " + mimeType);
-
-        headers = headers.stream().map(h -> h + HTTP_LINE_SEPARATOR).collect(Collectors.toList());
-        headers.add(HTTP_LINE_SEPARATOR);
+        headers.add("HTTP/1.1 " + status + "\r\n");
+        headers.add("Date " + new Date() + "\r\n");
+        headers.add("Content-length: " + data.length + "\r\n");
+        headers.add("Connection: close" + "\r\n");
+        headers.add("Content-type: " + mimeType + "\r\n");
+        headers.add("\r\n");
 
         return headers;
     }
