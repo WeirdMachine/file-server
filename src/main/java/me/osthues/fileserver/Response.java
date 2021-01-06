@@ -1,8 +1,6 @@
 package me.osthues.fileserver;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 public class Response
 {
@@ -51,4 +49,18 @@ public class Response
         return headers;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Response response = (Response) o;
+        return status == response.status && Arrays.equals(data, response.data) && Objects.equals(mimeType, response.mimeType);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(status, mimeType);
+        result = 31 * result + Arrays.hashCode(data);
+        return result;
+    }
 }

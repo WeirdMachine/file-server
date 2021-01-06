@@ -112,7 +112,7 @@ public class FileServer {
     }
 
 
-    private Response httpHandler(String method, String path) {
+    public Response httpHandler(String method, String path) {
 
         if (!method.equals("GET")) {
             return new Response(HttpStatus.NOT_IMPLEMENTED);
@@ -148,10 +148,7 @@ public class FileServer {
             // we parse the request with a string tokenizer
             StringTokenizer parse = new StringTokenizer(input);
             String method = parse.nextToken().toUpperCase();
-            // we get file requested
             String path = URLDecoder.decode(parse.nextToken(), StandardCharsets.UTF_8);
-
-            Response response;
 
 
             //Prevent directory traversal outside rootDir
@@ -160,6 +157,9 @@ public class FileServer {
                 path = "/";
             }
 
+            Response response;
+
+            //check for supported http version
             if (!parse.nextToken().equals("HTTP/1.1")) {
                 response = new Response(HttpStatus.HTTP_VERSION_NOT_SUPPORTED);
             }
@@ -167,8 +167,11 @@ public class FileServer {
                 response = httpHandler(method, path);
             }
 
+            //write headers
             response.buildHeaders().forEach(out::print);
             out.flush();
+
+            //write data
             dataOut.write(response.getData(), 0, response.getData().length);
             dataOut.flush();
 
@@ -187,7 +190,7 @@ public class FileServer {
 
     }
 
-    private Response buildFileResponse(String path) throws IOException {
+    public Response buildFileResponse(String path) throws IOException {
 
         Response response = new Response();
 
@@ -234,7 +237,7 @@ public class FileServer {
     }
 
 
-    private String getDirectory(Path filePath) throws IOException {
+    public String getDirectory(Path filePath) throws IOException {
         final String hrefTemplate = "<a href=\"%s\">%s</a>";
         String files;
 
@@ -251,8 +254,8 @@ public class FileServer {
 
     }
 
-    private byte[] getFile(String fileRequested) throws IOException {
-        File file = new File(fileRequested);
+    public byte[] getFile(String path) throws IOException {
+        File file = new File(path);
         int fileLength = (int) file.length();
 
         byte[] data = new byte[fileLength];
@@ -264,5 +267,8 @@ public class FileServer {
     }
 
 
+    public String getRootDir() {
+        return this.rootDir;
+    }
 }
 
