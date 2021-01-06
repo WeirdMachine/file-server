@@ -1,6 +1,6 @@
 package me.osthues.fileserver;
 
-import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.*;
 
 import java.io.*;
 import java.net.*;
@@ -65,32 +65,32 @@ public class FileServer {
         address = env.get("ADDRESS");
         directory = env.get("DIRECTORY");
 
-//        HelpFormatter formatter = new HelpFormatter();
-//
-//        Options options = new Options();
-//        options.addOption("h", "help", false, "print help")
-//               . addOption("p", "port", true, "listen port - default: 8080")
-//                .addOption("a", "address", true, "listen address - default: any")
-//                .addOption("dir", "directory", true, "directory to server files, required");
-//
-//
-//        CommandLineParser parser = new DefaultParser();
-//        CommandLine cmd = parser.parse( options, args);
-//
-//        if (options.getOption("h")) {
-//            formatter.printHelp("File Server", options);
-//            return;
-//        }
-//
-//        if (options.getOption("p").getValue() != null) {
-//            port = Integer.parseInt(options.getOption("p").getValue());
-//        }
-//        if (options.getOption("a").getValue() != null) {
-//            address = options.getOption("a").getValue();
-//        }
-//        if (options.getOption("dir").getValue() != null) {
-//            directory = options.getOption("dir").getValue();
-//        }
+        HelpFormatter formatter = new HelpFormatter();
+
+        Options options = new Options();
+        options.addOption("h", "help", false, "print help")
+               . addOption("p", "port", true, "listen port - default: "+ DEFAULT_PORT)
+                .addOption("a", "address", true, "listen address - default: " + DEFAULT_ADDRESS)
+                .addOption("dir", "directory", true, "directory to server files - default: " + DEFAULT_ROOT_DIR);
+
+
+        CommandLineParser parser = new DefaultParser();
+        CommandLine cmd = parser.parse(options, args);
+
+        if (cmd.hasOption("h")) {
+            formatter.printHelp("File Server", options);
+            return;
+        }
+
+        if (cmd.hasOption("p")) {
+            port = Integer.parseInt(cmd.getOptionValue("p"));
+        }
+        if (cmd.hasOption("a")) {
+            address = cmd.getOptionValue("a");
+        }
+        if (cmd.hasOption("dir")) {
+            directory = cmd.getOptionValue("dir");
+        }
 
         FileServer fileServer = new FileServer(address, port, directory);
         fileServer.Start();
