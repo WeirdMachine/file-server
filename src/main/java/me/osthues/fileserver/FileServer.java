@@ -114,22 +114,21 @@ public class FileServer {
 
     private Response httpHandler(String method, String path) {
 
-        Response response = new Response();
+        if (!method.equals("GET")) {
+            return new Response(HttpStatus.NOT_IMPLEMENTED);
 
-        switch (method) {
-            case "HEAD":
-                response.setStatus(HttpStatus.HTTP_VERSION_NOT_SUPPORTED);
-                break;
-            case "GET":
-                try {
-                    response = buildFileResponse(path);
-                } catch (IOException e) {
-                    response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR);
-                }
-                break;
+        } else {
+
+            Response response = new Response();
+
+            try {
+                response = buildFileResponse(path);
+            } catch (IOException e) {
+                response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+            return response;
         }
 
-        return response;
     }
 
     public void handleRequest(Socket socket) {
@@ -165,7 +164,7 @@ public class FileServer {
                 response = new Response(HttpStatus.HTTP_VERSION_NOT_SUPPORTED);
             }
             else {
-                response = buildFileResponse(path);
+                response = httpHandler(method, path);
             }
 
             response.buildHeaders().forEach(out::print);
