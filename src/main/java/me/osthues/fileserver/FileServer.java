@@ -6,7 +6,6 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -113,23 +112,29 @@ public class FileServer {
 
 
     public Response httpHandler(String method, String path) {
+        Response response = new Response();
 
-        if (!method.equals("GET")) {
-            return new Response(HttpStatus.NOT_IMPLEMENTED);
+        switch (method) {
+            case "HEAD":
+                response = buildHeadResponse(path);
+                break;
+            case "GET":
+                try {
+                    response = buildGetResponse(path);
+                } catch (IOException e) {
+                    response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+                break;
 
-        } else {
-
-            Response response = new Response();
-
-            try {
-                response = buildFileResponse(path);
-            } catch (IOException e) {
-                response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR);
-            }
-            return response;
+            default:
+                response.setStatus(HttpStatus.NOT_IMPLEMENTED);
         }
 
+        return response;
+
     }
+
+
 
     public void handleRequest(Socket socket) {
 
@@ -190,7 +195,7 @@ public class FileServer {
 
     }
 
-    public Response buildFileResponse(String path) throws IOException {
+    public Response buildGetResponse(String path) throws IOException {
 
         Response response = new Response();
 
@@ -234,6 +239,24 @@ public class FileServer {
         }
 
         return response;
+    }
+
+    public Response buildHeadResponse(String path) {
+
+        Response response = new Response();
+
+        File file = new File(this.rootDir + path);
+
+        if (file.exists()) {
+            response.setContentLength(file.length());
+            response.setStatus(HttpStatus.OK);
+
+        } else {
+            response.setStatus(HttpStatus.NOT_FOUND);
+        }
+
+        return response;
+
     }
 
 

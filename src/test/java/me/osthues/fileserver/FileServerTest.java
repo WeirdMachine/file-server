@@ -2,11 +2,7 @@ package me.osthues.fileserver;
 
 import org.junit.jupiter.api.Test;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,7 +31,7 @@ class FileServerTest {
     @Test
     void httpHandler() throws IOException {
 
-        Response expected = fileServer.buildFileResponse("/test.txt");
+        Response expected = fileServer.buildGetResponse("/test.txt");
         Response actual = fileServer.httpHandler("GET", "/test.txt");
 
         assertEquals(expected, actual);
@@ -45,7 +41,7 @@ class FileServerTest {
     @Test
     void buildFileResponse() throws IOException {
 
-        Response actual = fileServer.buildFileResponse("/test.txt");
+        Response actual = fileServer.buildGetResponse("/test.txt");
 
         byte[] data = fileServer.getFile(fileServer.getRootDir()+ "/test.txt");
 
@@ -56,9 +52,11 @@ class FileServerTest {
         assertTrue(headers.get(0).contains(HttpStatus.OK.toString()));
 
 
-        String length = headers.stream().filter(h -> !h.contains("Content-length")).findFirst().get();
+        String contentLength = headers.stream().filter(h -> h.contains("Content-length")).findFirst().get();
 
-        assertEquals(Integer.parseInt(length.substring("Content-length: ".length())), data.length);
+        String length = contentLength.substring("Content-length: ".length(), contentLength.length()-2);
+
+        assertEquals(Integer.parseInt(length), data.length);
         assertTrue(headers.get(0).contains(HttpStatus.OK.toString()));
 
     }
@@ -66,7 +64,7 @@ class FileServerTest {
     @Test
     void buildDirectoryResponse() throws IOException {
 
-        Response response = fileServer.buildFileResponse("/");
+        Response response = fileServer.buildGetResponse("/");
 
         List<String> headers = response.buildHeaders();
         assertTrue(headers.get(0).contains(HttpStatus.OK.toString()));
@@ -74,6 +72,26 @@ class FileServerTest {
         String actual = new String(response.getData());
 
         assertTrue(actual.contains("<a href=\"test.txt\">test.txt</a"));
+
+    }
+
+    @Test
+    void buildHeadResponse() throws IOException {
+
+        Response response = fileServer.buildHeadResponse("/test.txt");
+
+        List<String> headers = response.buildHeaders();
+
+        byte[] data = fileServer.getFile(fileServer.getRootDir()+ "/test.txt");
+
+
+        String contentLength = headers.stream().filter(h -> h.contains("Content-length")).findFirst().get();
+
+        String length = contentLength.substring("Content-length: ".length(), contentLength.length()-2);
+
+        assertEquals(Integer.parseInt(length), data.length);
+        assertTrue(headers.get(0).contains(HttpStatus.OK.toString()));
+
 
     }
 
@@ -96,4 +114,6 @@ class FileServerTest {
         assertTrue(Arrays.equals(data, expected));
 
     }
+
+
 }
