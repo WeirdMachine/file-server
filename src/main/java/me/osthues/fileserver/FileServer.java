@@ -154,10 +154,18 @@ public class FileServer {
 
             Response response;
 
-            if (parse.nextToken().equals("HTTP/1.1")) {
-               response = httpHandler(method, path);
-            } else {
+
+            //Prevent directory traversal outside rootDir
+            String canonicalPath = new File(this.rootDir + path).getCanonicalPath();
+            if (!canonicalPath.startsWith(rootDir)) {
+                path = "/";
+            }
+
+            if (!parse.nextToken().equals("HTTP/1.1")) {
                 response = new Response(HttpStatus.HTTP_VERSION_NOT_SUPPORTED);
+            }
+            else {
+                response = buildFileResponse(path);
             }
 
             response.buildHeaders().forEach(out::print);
@@ -195,7 +203,7 @@ public class FileServer {
 
             if (Files.isDirectory(filePath)) {
 
-                String htmlRespnse = "<html>\r\n" +
+                String htmlResponse = "<html>\r\n" +
                         "<head>\r\n" +
                         "<title>\r\n" +
                         "Index of " + path + "\r\n" +
@@ -214,7 +222,7 @@ public class FileServer {
                         "</body>\r\n" +
                         "</html>\r\n";
 
-                response.setData(htmlRespnse.getBytes());
+                response.setData(htmlResponse.getBytes());
             }
 
             response.setStatus(HttpStatus.OK);
@@ -228,17 +236,15 @@ public class FileServer {
 
 
     private String getDirectory(Path filePath) throws IOException {
-        final String linkTemplate = "<a href=\"%s\">%s</a>";
+        final String hrefTemplate = "<a href=\"%s\">%s</a>";
         String files;
-
-
 
         try (Stream<Path> paths = Files.list(filePath)) {
             files = paths
                     .map(Path::toAbsolutePath)
                     .map(Path::toString)
                     .map(s -> s.substring(filePath.toString().length()+1))
-                    .map(s -> String.format(linkTemplate, s, s))
+                    .map(s -> String.format(hrefTemplate, s, s))
                     .collect(Collectors.joining("\r\n"));
         }
 
